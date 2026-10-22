@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>NOL 앱으로 열기</title>
+<style>
+  :root { --bg: #f6f7f9; --card: #fff; --text: #16181d; --muted: #6b7280; --primary: #ff3478; --border: #e5e7eb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --card: #1a1d23; --text: #f2f3f5; --muted: #9aa1ad; --border: #2a2e36; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px;
+         background: var(--bg); color: var(--text);
+         font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif; }
+  main { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--border);
+         border-radius: 16px; padding: 28px 24px; text-align: center; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+  a.btn { display: block; padding: 14px; border-radius: 12px; text-decoration: none; font-weight: 600; }
+  a.primary { background: var(--primary); color: #fff; }
+  a.secondary { margin-top: 10px; border: 1px solid var(--border); color: var(--text); }
+  .error { color: var(--primary); }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">NOL 앱을 여는 중…</h1>
+  <p id="desc">앱이 열리지 않으면 아래 버튼을 눌러 주세요.</p>
+  <a id="app" class="btn primary" href="#">📱 NOL 앱에서 열기</a>
+  <a id="web" class="btn secondary" href="#">🌐 웹에서 열기</a>
+</main>
+<script>
+  // 취소표 알림 봇이 보낸 ?url=<NOL 상품 주소> 를 NOL 앱 전용 주소로 바꿔 앱을 연다.
+  // 다른 사이트로 넘기는 데 악용되지 않도록 https://nol.yanolja.com 주소만 받는다.
+  (function () {
+    var raw = new URLSearchParams(location.search).get("url") || "";
+    var target = null;
+    try {
+      var u = new URL(raw);
+      if (u.protocol === "https:" && u.hostname === "nol.yanolja.com") target = u.href;
+    } catch (e) {}
+
+    if (!target) {
+      document.getElementById("title").textContent = "잘못된 링크입니다";
+      document.getElementById("title").className = "error";
+      document.getElementById("desc").textContent = "NOL 상품 주소가 아닙니다.";
+      document.getElementById("app").style.display = "none";
+      document.getElementById("web").style.display = "none";
+      return;
+    }
+
+    var appUrl = "yanoljamotel://wv?url=" + encodeURIComponent(target);
+    document.getElementById("app").href = appUrl;
+    document.getElementById("web").href = target;
+    location.href = appUrl;
+  })();
+</script>
+</body>
+</html>

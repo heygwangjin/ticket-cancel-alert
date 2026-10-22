@@ -1,0 +1,15 @@
+# 비밀값
+.env
+
+# 실행 상태 / 로그
+state.json
+logs/
+
+# 감시 대상 (개인 설정 — 커밋하려면 이 줄을 지우세요)
+config.yaml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/

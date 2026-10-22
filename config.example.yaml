@@ -1,0 +1,20 @@
+# 이 파일을 config.yaml 로 복사해서 사용하세요:  cp config.example.yaml config.yaml
+
+settings:
+  interval_min_sec: 180        # 점검 주기: 180~300초 사이 무작위 (60초 미만은 허용 안 함)
+  interval_max_sec: 300
+  request_delay_sec: [2, 6]    # 요청 사이 무작위 지연(초)
+  failure_alert_threshold: 3   # 연속 실패가 이 횟수에 이르면 "감시 오류" 알림
+  max_rounds_per_target: 20    # 한 공연에서 조회할 회차 수 상한 (넘으면 dates/rounds 로 좁히세요)
+  # 알림의 "📱 NOL 앱에서 열기" 버튼용 중계 페이지 (README 의 "앱으로 열기" 참고). 비우면 웹 버튼만 표시
+  app_open_page: ""            # 예: "https://<GitHub아이디>.github.io/ticket-cancel-alert/open.html"
+
+targets:
+  - name: "요네즈 켄시 내한"   # 비워 두면 사이트의 공연명 사용
+    site: nol
+    goods: "https://nol.yanolja.com/ticket/products/26015024"   # 공연 URL 또는 상품 ID
+    dates: ["2027-01-16", "2027-01-17"]   # 비우면 전체 날짜
+    rounds: [1]                           # 그날의 회차 번호(1회, 2회…), 비우면 전체
+    grades: ["플로어", "R"]               # 좌석 등급, 비우면 전체 ("R" 은 "지정석 R" 과 일치)
+
+  - goods: "25001234"           # 상품 ID만 적어도 됨, 나머지는 전체
