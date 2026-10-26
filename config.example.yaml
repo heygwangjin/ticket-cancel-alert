@@ -1,7 +1,7 @@
 # 이 파일을 config.yaml 로 복사해서 사용하세요:  cp config.example.yaml config.yaml
 
 settings:
-  interval_min_sec: 180        # 점검 주기: 180~300초 사이 무작위 (60초 미만은 허용 안 함)
+  interval_min_sec: 180        # 점검 간격(점검 시작 시각 기준): 180~300초 사이 무작위 (60초 미만은 허용 안 함)
   interval_max_sec: 300
   request_delay_sec: [2, 6]    # 요청 사이 무작위 지연(초)
   failure_alert_threshold: 3   # 연속 실패가 이 횟수에 이르면 "감시 오류" 알림

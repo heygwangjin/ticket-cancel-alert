@@ -12,6 +12,7 @@ import random
 import signal
 import sys
 import threading
+import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -71,12 +72,15 @@ def main(argv: list[str] | None = None) -> int:
              f"{args.interval_override:.0f}초 (테스트)" if args.interval_override
              else f"{s.interval_min_sec:.0f}~{s.interval_max_sec:.0f}초")
     while not stop.is_set():
+        started = time.monotonic()
         try:
             monitor.run_cycle()
         except Exception:  # run_cycle 은 예외를 삼키지만, 만일을 대비해 루프는 절대 죽지 않게
             log.exception("점검 중 예상치 못한 오류")
-        wait = (max(10.0, args.interval_override) if args.interval_override
-                else random.uniform(s.interval_min_sec, s.interval_max_sec))
+        interval = (max(10.0, args.interval_override) if args.interval_override
+                    else random.uniform(s.interval_min_sec, s.interval_max_sec))
+        # 간격은 점검 시작 시각 기준 (점검에 걸린 시간만큼 빼고 대기)
+        wait = max(0.0, interval - (time.monotonic() - started))
         log.info("다음 점검까지 %.0f초 대기", wait)
         stop.wait(wait)
     log.info("종료합니다.")
