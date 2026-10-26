@@ -124,10 +124,49 @@ targets:
 3. **Actions** 탭에서 "취소표 감시" 워크플로를 고르고 **Run workflow**로 한 번 실행해 성공하는지 확인합니다.
 
 주의할 점:
-- GitHub 스케줄은 **정확하지 않습니다.** 5분으로 설정해도 실제로는 10~20분 넘게 늦어지는 일이 흔합니다. 인기 공연의 취소표를 빨리 잡으려면 A 방식이 낫습니다.
-- 공개 저장소에서 **60일 동안 커밋이 없으면** 스케줄 실행이 자동으로 멈춥니다. Actions 탭에서 다시 켜면 됩니다.
+- GitHub 스케줄은 **정확하지 않습니다.** 이 저장소에서 `*/5`로 설정했을 때 실제 간격은 평균 약 3시간(2~5시간)이었습니다. 5분 간격이 필요하면 아래처럼 외부 크론으로 실행 신호를 보내세요.
+- 공개 저장소에서 **60일 동안 커밋이 없으면** 스케줄 실행이 자동으로 멈춥니다. Actions 탭에서 다시 켜면 됩니다. 외부 크론으로 보내는 실행 신호는 이 제한을 받지 않습니다.
 - 공개 저장소의 Actions 실행 로그는 누구나 볼 수 있습니다. 그래서 Actions에서는 경고와 오류만 기록하고, 감시 대상은 저장소 파일이 아니라 `CONFIG_YAML` Secret으로 넣습니다.
 - 감시 대상을 바꾸려면 `CONFIG_YAML` Secret을 다시 등록하세요.
+
+#### 외부 크론으로 5분마다 실행하기 (cron-job.org)
+
+GitHub의 정기 스케줄은 늦지만, API로 보내는 수동 실행 신호(`workflow_dispatch`)는 바로 실행됩니다. 무료 크론 서비스가 5분마다 이 신호를 보내게 합니다.
+
+**① GitHub 토큰 만들기** (이 저장소의 Actions 실행 권한만 가진 토큰)
+1. GitHub → 프로필 사진 → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**
+2. Token name: `cron-job-ticket-alert`, Expiration: 원하는 기간 (만료되면 새로 만들어 교체)
+3. Repository access: **Only select repositories** → `ticket-cancel-alert`
+4. Permissions → Repository permissions → **Actions: Read and write** (Metadata: Read-only는 자동으로 들어감)
+5. **Generate token**을 누르고 `github_pat_…` 값을 복사합니다. 이 화면을 벗어나면 다시 볼 수 없습니다.
+
+**② cron-job.org 설정**
+1. https://cron-job.org 에 가입한 뒤 **Dashboard → Create cronjob**
+2. COMMON 탭
+   - Title: `티켓 취소표 감시`
+   - URL: `https://api.github.com/repos/<아이디>/ticket-cancel-alert/actions/workflows/monitor.yml/dispatches`
+   - Execution schedule: **Every 5 minutes**
+3. ADVANCED 탭
+   - Request method: **POST**
+   - Headers (4개):
+
+     | Key | Value |
+     |---|---|
+     | `Authorization` | `Bearer github_pat_…` (①에서 복사한 토큰) |
+     | `Accept` | `application/vnd.github+json` |
+     | `X-GitHub-Api-Version` | `2022-11-28` |
+     | `Content-Type` | `application/json` |
+   - Request body: `{"ref":"main"}`
+4. **TEST RUN**을 눌러 응답 코드가 **204**(또는 200)인지 확인한 뒤 **CREATE**로 저장합니다.
+5. NOTIFICATIONS 탭의 실행 실패 알림을 켜 두면, 토큰이 만료됐을 때 메일로 알 수 있습니다.
+
+응답 코드로 원인을 알 수 있습니다.
+- `401`: 토큰이 틀렸거나 만료됨
+- `403`: Actions 권한이 Read and write가 아님
+- `404`: URL의 아이디·저장소명·파일명이 틀림
+- `422`: body의 브랜치 이름이 틀림
+
+실행이 겹치면 워크플로의 `concurrency` 설정에 따라 차례로 실행되므로, 상태 파일이 꼬이지 않습니다.
 
 ## 6. 앱으로 열기 (📱 버튼)
 

@@ -2,7 +2,7 @@ name: 취소표 감시
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # GitHub 사정으로 실제로는 5~15분 이상 늦어질 수 있음
+    - cron: "*/5 * * * *"   # 백업용. 실제로는 몇 시간씩 늦음 → 5분 간격은 외부 크론의 workflow_dispatch 로 (README 참고)
   workflow_dispatch:
 
 # 실행이 겹치면 state.json 이 꼬이므로 한 번에 하나씩만
