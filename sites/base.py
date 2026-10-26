@@ -34,6 +34,7 @@ class SeatAvailability:
     grade: str          # 좌석 등급명
     remain: int         # 잔여 수량
     booking_url: str
+    cancel_close: str = ""   # 취소 마감 "YYYY-MM-DD HH:MM:SS" (한국 시간, 모르면 빈 값)
 
 
 class Site(Protocol):

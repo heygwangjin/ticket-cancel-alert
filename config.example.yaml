@@ -8,6 +8,10 @@ settings:
   max_rounds_per_target: 20    # 한 공연에서 조회할 회차 수 상한 (넘으면 dates/rounds 로 좁히세요)
   # 알림의 "📱 NOL 앱에서 열기" 버튼용 중계 페이지 (README 의 "앱으로 열기" 참고). 비우면 웹 버튼만 표시
   app_open_page: ""            # 예: "https://<GitHub아이디>.github.io/ticket-cancel-alert/open.html"
+  # 집중 감시: 취소표가 몰리는 시간에는 focus_interval_sec(최소 60초) 간격으로 점검
+  focus_interval_sec: 60
+  focus_windows: ["23:50-00:20"]          # 매일 반복, 한국 시간 "HH:MM-HH:MM" (자정 넘김 가능). 무통장입금 기한 마감 전후 등
+  focus_before_cancel_close_min: 60       # 감시 회차의 취소 마감 60분 전 ~ 마감까지 (0이면 사용 안 함)
 
 targets:
   - name: "요네즈 켄시 내한"   # 비워 두면 사이트의 공연명 사용

@@ -45,7 +45,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--log-dir", default="logs", help="로그 폴더, 빈 값이면 파일 로그 안 남김 (기본: logs)")
     p.add_argument("--interval-override", type=float, metavar="SEC",
                    help="테스트용: 점검 간격을 이 값(초, 최소 10)으로 고정")
+    p.add_argument("--focus-budget", type=float, default=0, metavar="SEC",
+                   help="--once 와 함께: 집중 감시 시간이면 이 시간(초) 안에서 focus_interval_sec 간격으로 "
+                        "여러 번 점검 (Actions 용, 기본 0 = 1회만)")
     return p.parse_args(argv)
+
+
+def run_once(monitor: Monitor, focus_interval: float, budget: float) -> None:
+    """한 번 점검한다. 집중 감시 시간이면 budget 초 안에서 focus_interval 간격으로 반복한다."""
+    started = time.monotonic()
+    while True:
+        cycle_started = time.monotonic()
+        monitor.run_cycle()
+        reason = monitor.focus_reason()
+        next_at = cycle_started + focus_interval
+        if not reason or next_at - started > budget:
+            return
+        log.info("집중 감시(%s): %.0f초 후 다시 점검", reason, next_at - time.monotonic())
+        time.sleep(max(0.0, next_at - time.monotonic()))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -60,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
     monitor = Monitor(cfg, State.load(args.state), TelegramNotifier(cfg.telegram_token, cfg.telegram_chat_id))
 
     if args.once:
-        monitor.run_cycle()
+        run_once(monitor, cfg.settings.focus_interval_sec, args.focus_budget)
         return 0
 
     stop = threading.Event()
@@ -77,8 +94,14 @@ def main(argv: list[str] | None = None) -> int:
             monitor.run_cycle()
         except Exception:  # run_cycle 은 예외를 삼키지만, 만일을 대비해 루프는 절대 죽지 않게
             log.exception("점검 중 예상치 못한 오류")
-        interval = (max(10.0, args.interval_override) if args.interval_override
-                    else random.uniform(s.interval_min_sec, s.interval_max_sec))
+        reason = monitor.focus_reason()
+        if args.interval_override:
+            interval = max(10.0, args.interval_override)
+        elif reason:
+            interval = random.uniform(s.focus_interval_sec, s.focus_interval_sec + 10)
+            log.info("집중 감시 중 (%s)", reason)
+        else:
+            interval = random.uniform(s.interval_min_sec, s.interval_max_sec)
         # 간격은 점검 시작 시각 기준 (점검에 걸린 시간만큼 빼고 대기)
         wait = max(0.0, interval - (time.monotonic() - started))
         log.info("다음 점검까지 %.0f초 대기", wait)

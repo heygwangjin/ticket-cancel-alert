@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -11,6 +12,9 @@ from dotenv import load_dotenv
 
 class ConfigError(Exception):
     pass
+
+
+WINDOW_RE = re.compile(r"([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d")
 
 
 @dataclass(frozen=True)
@@ -35,6 +39,10 @@ class Settings:
     failure_alert_threshold: int = 3
     max_rounds_per_target: int = 20  # 한 대상에서 한 번에 조회할 회차 수 상한 (요청 폭주 방지)
     app_open_page: str = ""          # 앱 열기 중계 페이지 주소 (docs/open.html 을 배포한 URL)
+    # 집중 감시: 아래 시간대에는 focus_interval_sec 간격으로 점검
+    focus_interval_sec: float = 60
+    focus_windows: tuple[str, ...] = ()       # 매일 반복, 한국 시간 "HH:MM-HH:MM" (자정 넘김 가능)
+    focus_before_cancel_close_min: int = 0    # 감시 회차의 취소 마감 N분 전 ~ 마감 (0이면 사용 안 함)
 
 
 @dataclass(frozen=True)
@@ -62,6 +70,9 @@ def _parse_settings(raw: dict) -> Settings:
         failure_alert_threshold=int(raw.get("failure_alert_threshold", Settings.failure_alert_threshold)),
         max_rounds_per_target=int(raw.get("max_rounds_per_target", Settings.max_rounds_per_target)),
         app_open_page=str(raw.get("app_open_page") or "").strip(),
+        focus_interval_sec=float(raw.get("focus_interval_sec", Settings.focus_interval_sec)),
+        focus_windows=tuple(str(w).replace(" ", "") for w in raw.get("focus_windows") or ()),
+        focus_before_cancel_close_min=int(raw.get("focus_before_cancel_close_min", 0)),
     )
     if len(s.request_delay_sec) != 2 or s.request_delay_sec[0] > s.request_delay_sec[1]:
         raise ConfigError("request_delay_sec 는 [최소, 최대] 형식이어야 합니다.")
@@ -73,6 +84,13 @@ def _parse_settings(raw: dict) -> Settings:
         raise ConfigError("max_rounds_per_target 는 1~50 사이여야 합니다.")
     if s.app_open_page and not s.app_open_page.startswith("https://"):
         raise ConfigError("app_open_page 는 https:// 주소여야 합니다 (텔레그램 버튼 제약).")
+    if s.focus_interval_sec < 60:
+        raise ConfigError("focus_interval_sec 는 60초 이상이어야 합니다.")
+    for w in s.focus_windows:
+        if not WINDOW_RE.fullmatch(w):
+            raise ConfigError(f'focus_windows 형식 오류: {w!r} (예: "23:50-00:20")')
+    if s.focus_before_cancel_close_min < 0:
+        raise ConfigError("focus_before_cancel_close_min 는 0 이상이어야 합니다.")
     return s
 
 

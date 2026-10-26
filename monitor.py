@@ -6,11 +6,12 @@ import logging
 import random
 import time
 from collections import defaultdict
-from datetime import date
-from typing import Callable
+from datetime import date, datetime, timedelta
+from typing import Callable, Iterable
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
-from config import Config, Target
+from config import Config, Settings, Target
 from notifier import NotifyError, TelegramNotifier
 from sites import get_site
 from sites.base import SeatAvailability, Site
@@ -19,6 +20,27 @@ from state import State, seat_key
 log = logging.getLogger(__name__)
 
 WEEKDAYS = "월화수목금토일"
+KST = ZoneInfo("Asia/Seoul")
+
+
+def focus_reason(now: datetime, settings: Settings, cancel_closes: Iterable[str]) -> str | None:
+    """지금이 집중 감시 시간이면 그 이유를, 아니면 None 을 반환한다. now 는 한국 시간."""
+    hm = now.strftime("%H:%M")
+    for w in settings.focus_windows:
+        start, end = w.split("-")
+        inside = start <= hm < end if start <= end else (hm >= start or hm < end)  # 자정 넘김
+        if inside:
+            return f"시간대 {w}"
+    if settings.focus_before_cancel_close_min:
+        lead = timedelta(minutes=settings.focus_before_cancel_close_min)
+        for cc in sorted(cancel_closes):
+            try:
+                close = datetime.strptime(cc, "%Y-%m-%d %H:%M:%S").replace(tzinfo=KST)
+            except ValueError:
+                continue
+            if close - lead <= now <= close:
+                return f"취소 마감 {cc[:16]} 직전"
+    return None
 
 
 def target_label(target: Target) -> str:
@@ -60,12 +82,17 @@ class Monitor:
         self.notifier = notifier
         self._site_factory = site_factory
         self._sites: dict[str, Site] = {}   # 루프 실행 시 사이트 객체(캐시 포함)를 재사용
+        self._cancel_closes: dict[str, set[str]] = {}  # target_id -> 감시 회차들의 취소 마감 시각
         self._sleep = sleep or (lambda: time.sleep(random.uniform(*config.settings.request_delay_sec)))
 
     def _site(self, name: str) -> Site:
         if name not in self._sites:
             self._sites[name] = self._site_factory(name, self.config.settings)
         return self._sites[name]
+
+    def focus_reason(self, now: datetime | None = None) -> str | None:
+        closes = set().union(*self._cancel_closes.values()) if self._cancel_closes else set()
+        return focus_reason(now or datetime.now(KST), self.config.settings, closes)
 
     def run_cycle(self) -> None:
         """모든 대상을 한 번씩 점검하고 상태를 저장한다. 예외를 밖으로 던지지 않는다."""
@@ -85,6 +112,7 @@ class Monitor:
 
     def _check(self, target: Target) -> None:
         seats = self._site(target.site).fetch(target)
+        self._cancel_closes[target.id] = {s.cancel_close for s in seats if s.cancel_close}
         newly = [s for s in seats
                  if self.state.is_newly_available(seat_key(target.id, s.date, s.round, s.grade), s.remain)]
         log.info("[%s] 좌석 %d건 확인, 새 잔여석 %d건",

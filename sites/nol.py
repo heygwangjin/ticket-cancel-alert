@@ -51,6 +51,7 @@ class Schedule:
     time: str
     round: int          # 그날의 몇 번째 회차인지 (1부터)
     sale_close: str     # "YYYY-MM-DD HH:MM:SS"
+    cancel_close: str = ""
 
 
 # ---------------------------------------------------------------- 파싱 (순수 함수)
@@ -96,6 +97,7 @@ def parse_schedules(data: dict) -> list[Schedule]:
                 result.append(Schedule(
                     play_seq=str(r["playSeq"]), date=day, time=r.get("playTime", ""),
                     round=i, sale_close=r.get("saleCloseTime", ""),
+                    cancel_close=r.get("cancelCloseTime", ""),
                 ))
         return result
     except (KeyError, TypeError) as e:
@@ -196,7 +198,7 @@ class NolSite:
                 if grade_matches(target.grades, grade):
                     result.append(SeatAvailability(
                         title=title, date=s.date, round=s.round, time=s.time,
-                        grade=grade, remain=remain, booking_url=url,
+                        grade=grade, remain=remain, booking_url=url, cancel_close=s.cancel_close,
                     ))
         return result
 

@@ -148,3 +148,53 @@ def test_removed_target_is_pruned(env):
 def test_booking_buttons_without_app_page():
     from monitor import booking_buttons
     assert booking_buttons(URL) == [("🌐 웹에서 열기", URL)]
+
+
+# ---------------------------------------------------------------- 집중 감시
+
+from datetime import datetime
+
+from monitor import KST, focus_reason
+
+FOCUS = Settings(focus_windows=("23:50-00:20", "12:00-12:10"), focus_before_cancel_close_min=60)
+
+
+def at(s):
+    return datetime.strptime(s, "%Y-%m-%d %H:%M").replace(tzinfo=KST)
+
+
+@pytest.mark.parametrize("now,expected", [
+    ("2026-10-26 23:49", None),
+    ("2026-10-26 23:50", "시간대 23:50-00:20"),
+    ("2026-10-27 00:10", "시간대 23:50-00:20"),   # 자정 넘김
+    ("2026-10-27 00:20", None),
+    ("2026-10-27 12:05", "시간대 12:00-12:10"),
+])
+def test_focus_windows(now, expected):
+    assert focus_reason(at(now), FOCUS, []) == expected
+
+
+@pytest.mark.parametrize("now,inside", [
+    ("2027-01-13 15:59", False),
+    ("2027-01-13 16:01", True),
+    ("2027-01-13 17:00", True),
+    ("2027-01-13 17:02", False),
+])
+def test_focus_before_cancel_close(now, inside):
+    reason = focus_reason(at(now), FOCUS, ["2027-01-13 17:00:59", "bad-value"])
+    assert (reason == "취소 마감 2027-01-13 17:00 직전") is inside
+
+
+def test_focus_disabled_by_default():
+    assert focus_reason(at("2026-10-26 23:55"), Settings(), ["2026-10-26 23:59:00"]) is None
+
+
+def test_monitor_tracks_cancel_close(tmp_path):
+    site = FakeSite()
+    site.result = [SeatAvailability("t", "2027-01-14", 1, "19:30", "R석", 0, URL, cancel_close="2027-01-13 17:00:59")]
+    cfg = Config(settings=Settings(focus_before_cancel_close_min=60), targets=(TARGET,),
+                 telegram_token="T", telegram_chat_id="1")
+    m = Monitor(cfg, State(tmp_path / "s.json"), FakeNotifier(), site_factory=lambda n, s: site, sleep=lambda: None)
+    assert m.focus_reason(at("2027-01-13 16:30")) is None     # 아직 조회 전
+    m.run_cycle()
+    assert m.focus_reason(at("2027-01-13 16:30")) == "취소 마감 2027-01-13 17:00 직전"

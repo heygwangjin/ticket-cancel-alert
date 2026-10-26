@@ -47,7 +47,8 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           # 공개 저장소는 실행 로그를 누구나 볼 수 있으므로 경고·오류만 남긴다
           LOG_LEVEL: WARNING
-        run: python main.py --once --log-dir ""
+        # 집중 감시 시간이면 120초 안에서 여러 번 점검 (3분마다 오는 다음 실행과 겹치지 않게)
+        run: python main.py --once --focus-budget 120 --log-dir ""
 
       - name: 상태 저장
         if: always() && hashFiles('state.json') != ''

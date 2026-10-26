@@ -109,6 +109,7 @@ def test_fetch_filters_dates_rounds_grades():
     assert [(s.grade, s.remain) for s in seats] == [("플로어석", 2), ("지정석 R", 1)]
     assert seats[0].title == "요네즈 켄시 내한공연"
     assert seats[0].booking_url == "https://nol.yanolja.com/ticket/products/26015024"
+    assert seats[0].cancel_close == "2027-01-15 17:00:59"
 
 
 @respx.mock

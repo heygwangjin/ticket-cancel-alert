@@ -29,3 +29,20 @@ def test_too_short_interval_rejected(tmp_path):
     p.write_text("settings: {interval_min_sec: 10}\ntargets: [{goods: '1'}]\n", encoding="utf-8")
     with pytest.raises(ConfigError):
         load_config(p)
+
+
+def test_focus_settings_loaded():
+    s = load_config("config.example.yaml").settings
+    assert s.focus_windows == ("23:50-00:20",) and s.focus_before_cancel_close_min == 60
+
+
+@pytest.mark.parametrize("body", [
+    "settings: {focus_windows: ['25:00-01:00']}\n",
+    "settings: {focus_windows: ['2350-0020']}\n",
+    "settings: {focus_interval_sec: 30}\n",
+])
+def test_invalid_focus_settings_rejected(tmp_path, body):
+    p = tmp_path / "c.yaml"
+    p.write_text(body + "targets: [{goods: '1'}]\n", encoding="utf-8")
+    with pytest.raises(ConfigError):
+        load_config(p)
